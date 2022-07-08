@@ -3,18 +3,23 @@
 struct GameData
 {
 	int32 score = 0, highscore = 0, prescore = 0;
-	int32 num = 0, ballnum = 50;
+	int32 num = 0, ballnum = 10;
+	int32 stageNum = 1, allStage = 1;
 	SecondsF timeSet = 20.0s;
 };
 using App = SceneManager<String, GameData>;
 class Title :public App::Scene {
+private:
+	Rect Start{ 325, 460, 150, 80 };
 public:
 	Title(const InitData& init) :IScene(init) {
 	}
 	void update() FMT_OVERRIDE {
 
-		if (MouseR.down())
+		if (MouseL.down() && Start.mouseOver())
 		{
+			getData().allStage = getData().num * 2 + 1;
+			getData().ballnum = getData().stageNum * getData().allStage + 1;
 			getData().score = 0;
 			changeScene(U"Game");
 		}
@@ -31,11 +36,11 @@ public:
 			//中心(400,300)
 			Vec2{ 250, 225 }, Vec2{ 225, 300 }, Vec2{ 250, 375 }, Vec2{ 200, 300 }
 		};
-		polygon1.draw(Palette::Skyblue);
-		polygon2.draw(Palette::Skyblue);
-		if (polygon1.mouseOver())//Right
+		polygon1.draw(Palette::Blue);
+		polygon2.draw(Palette::Blue);
+		if (polygon1.mouseOver() && getData().num <= 2)//Right
 		{
-			polygon1.draw(Palette::White);
+			polygon1.draw(Palette::Skyblue);
 			if (MouseL.down())
 			{
 				getData().num++;
@@ -44,11 +49,11 @@ public:
 		}
 		else
 		{
-			polygon1.draw(Palette::Skyblue);
+			polygon1.draw(Palette::Blue);
 		}
 		if (polygon2.mouseOver() && getData().num >= 1)//Left
 		{
-			polygon2.draw(Palette::White);
+			polygon2.draw(Palette::Skyblue);
 			if (MouseL.down())
 			{
 				getData().num--;
@@ -57,13 +62,31 @@ public:
 		}
 		else
 		{
-			polygon2.draw(Palette::Skyblue);
+			polygon2.draw(Palette::Blue);
 		}
-		Scene::SetBackground(ColorF(0.3, 0.4, 0.5));
+		Scene::SetBackground(Palette::Violet);
 		FontAsset(U"TitleFont")(U"Color Game").drawAt(400, 100);
 		FontAsset(U"ScoreFont")(U"Score: {}"_fmt(getData().prescore)).draw(590, 490);
 		FontAsset(U"ScoreFont")(U"HighScore: {}"_fmt(getData().highscore)).draw(520, 540);
-
+		if (getData().num == 0) {
+			FontAsset(U"ScoreFont")(U"EASY").drawAt(400, 300);
+		}
+		if (getData().num == 1) {
+			FontAsset(U"ScoreFont")(U"NORMAL").drawAt(400, 300);
+		}
+		if (getData().num == 2) {
+			FontAsset(U"ScoreFont")(U"HALD").drawAt(400, 300);
+		}
+		if (getData().num == 3) {
+			FontAsset(U"ScoreFont")(U"CHALLENGE").drawAt(400, 300);
+		}
+		if (Start.mouseOver()) {
+			Start.draw(Palette::Skyblue);
+		}
+		else {
+			Start.draw(Palette::Blue);
+		}
+		FontAsset(U"ScoreFont")(U"START").drawAt(400, 500);
 	}
 };
 class Game : public App::Scene {
@@ -192,7 +215,12 @@ public:
 		{
 			getData().prescore= getData().score;
 			getData().highscore = Max(getData().highscore, getData().score);
-			changeScene(U"Title",2.0s);
+			if (clear == true) {
+				changeScene(U"GameClear", 5.0s);
+			}
+			else {
+				changeScene(U"GameOver", 2.0s);
+			}
 			
 		}
 		const double deltaTime = Scene::DeltaTime();
@@ -227,6 +255,44 @@ public:
 		}
 	}
 };
+class GameClear : public App::Scene {
+public:
+	GameClear(const InitData& init) :IScene(init) {
+	}
+	void update() override {
+		if (MouseR.down())
+		{
+			if (getData().stageNum < getData().allStage) {
+				getData().stageNum++;
+				getData().allStage = getData().num * 2 + 1;
+				getData().ballnum = getData().stageNum * getData().allStage + 1;
+				changeScene(U"Game");
+			}
+			else {
+				getData().stageNum = 1;
+				changeScene(U"Title");
+			}
+		}
+	}
+	void draw() const override {
+		Scene::SetBackground(Palette::White);
+	}
+};
+class GameOver : public App::Scene {
+public:
+	GameOver(const InitData& init) :IScene(init) {
+	}
+	void update() override {
+		if (MouseR.down())
+		{
+			getData().stageNum = 1;
+			changeScene(U"Title");
+		}
+	}
+	void draw() const override {
+		Scene::SetBackground(Palette::Black);
+	}
+};
 void Main()
 {
 	FontAsset::Register(U"TitleFont", 60, Typeface::Heavy);
@@ -237,7 +303,9 @@ void Main()
 	// タイトルシーン（名前は U"Title"）を登録
 	manager.add<Title>(U"Title");
 	manager.add<Game>(U"Game");
-	manager.init(U"Game");
+	manager.add<GameClear>(U"GameClear");
+	manager.add<GameOver>(U"GameOver");
+	//manager.init(U"Game");
 
 	while (System::Update())
 	{
